@@ -1875,6 +1875,7 @@ async function fetchArtistInfo(artistName) {
   let bio = '';
   let avatar = '';
   let isVerified = false;
+  let fans = 0;
   let tracks = [];
   let resolvedName = cleanName;
 
@@ -1895,6 +1896,7 @@ async function fetchArtistInfo(artistName) {
       if (topArtist.name) resolvedName = topArtist.name;
       avatar = topArtist.picture_xl || topArtist.picture_big || topArtist.picture_medium || '';
       isVerified = (topArtist.nb_fan || 0) > 30000;
+      fans = topArtist.nb_fan || 0;
 
       if (topArtist.tracklist) {
         const tlistData = await new Promise((resolve) => {
@@ -1961,6 +1963,7 @@ async function fetchArtistInfo(artistName) {
     bio: (bio || '').trim(),
     avatar: avatar || (tracks[0] ? tracks[0].thumbnail : ''),
     isVerified: isVerified,
+    fans: fans,
     tracks: tracks.slice(0, 35)
   };
 

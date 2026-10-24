@@ -5484,7 +5484,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <svg width="14" height="14" class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/> <path d="m15 5 4 4"/></svg>
           </button>
           <button type="button" class="preset-btn-action btn-delete-p" title="Delete" aria-label="Delete preset">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
           </button>
         </div>` : ''}
         `;
@@ -6267,7 +6267,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       <svg width="16" height="16" class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/> <circle cx="9" cy="9" r="2"/> <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
       </button>
       <button class="btn-icon-pill btn-row-add-playlist" title="add to playlist">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
       </button>
       ${track.platform === 'local' ? `
       <button class="btn-icon-pill btn-row-remove-local delete-btn" title="Remove from library">
@@ -6278,7 +6278,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       </button>`}
       ${context === 'playlist' ? `
         <button class="btn-icon-pill btn-row-remove-playlist delete-btn" title="remove from playlist">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
         </button>` : ''}
         </div>
         `;
@@ -6652,6 +6652,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (e) {}
   }
 
+  // ----- Artist page: listener stat, Play, Follow -----
+  const FOLLOW_KEY = 'waev_followed_artists';
+  const getFollowed = () => { try { const v = JSON.parse(localStorage.getItem(FOLLOW_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; } };
+  const followKey = (n) => String(n || '').trim().toLowerCase();
+  function setArtistStat(artist) {
+    const box = document.getElementById('artist-stat');
+    const txt = document.getElementById('artist-stat-text');
+    if (!box || !txt) return;
+    const fans = artist && artist.fans;
+    box.classList.toggle('hidden', !fans);
+    if (fans) txt.innerHTML = `<strong>${Number(fans).toLocaleString()}</strong> fans`;
+  }
+  function syncFollowButton() {
+    const btn = document.getElementById('btn-artist-follow');
+    if (!btn) return;
+    const on = getFollowed().includes(followKey(state.currentArtistName));
+    btn.classList.toggle('is-following', on);
+    btn.setAttribute('aria-pressed', String(on));
+    const label = document.getElementById('artist-follow-label');
+    if (label) label.textContent = on ? 'Following' : 'Follow';
+  }
+  const btnArtistFollow = document.getElementById('btn-artist-follow');
+  if (btnArtistFollow) btnArtistFollow.addEventListener('click', () => {
+    const key = followKey(state.currentArtistName);
+    if (!key) return;
+    const list = getFollowed();
+    const next = list.includes(key) ? list.filter(k => k !== key) : [...list, key];
+    try { localStorage.setItem(FOLLOW_KEY, JSON.stringify(next)); } catch (_) {}
+    syncFollowButton();
+  });
+  const btnArtistPlay = document.getElementById('btn-artist-play');
+  if (btnArtistPlay) btnArtistPlay.addEventListener('click', () => {
+    const tracks = state.currentArtistTracks || [];
+    if (tracks.length) playTrack(tracks[0], tracks.slice(), 0, 'artist');
+  });
+
   async function openArtistProfile(artistName) {
     if (!artistName || !artistName.trim()) return;
     const cleanName = artistName.replace(/ - Topic|VEVO|Official|Records/gi, '').trim();
@@ -6678,6 +6714,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (wrap) wrap.classList.add('loading');
     if (el.artistAvatarFallback) el.artistAvatarFallback.style.display = 'flex';
     if (el.artistVerifiedBadge) el.artistVerifiedBadge.classList.add('hidden');
+    state.currentArtistTracks = [];
+    state.currentArtistName = cleanName;
+    setArtistStat(null);
+    syncFollowButton();
     if (el.artistHeroBackdrop) el.artistHeroBackdrop.style.backgroundImage = '';
     if (el.artistTracksList) el.artistTracksList.innerHTML = '<div class="empty-hint">Fetching official releases...</div>';
 
@@ -6726,6 +6766,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       if (el.artistVerifiedBadge) el.artistVerifiedBadge.classList.toggle('hidden', !data.artist.isVerified);
+      setArtistStat(data.artist);
+      state.currentArtistTracks = data.artist.tracks || [];
+      syncFollowButton();
 
       if (data.artist.avatar) {
         if (el.artistAvatarImg) {
@@ -6956,7 +6999,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           <div class="empty-hint" style="display:flex;flex-direction:column;align-items:center;gap:12px;">
             <span>No local tracks in library yet.</span>
             <button class="btn-pill-primary" id="btn-add-local-files-empty">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
               Add files
             </button>
           </div>`;
@@ -7712,7 +7755,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
           actionEl.className = 'playlist-pick-action-btn';
           actionEl.innerHTML = `
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14" /><path d="M12 5v14" /></svg>
           `;
         }
 
@@ -11570,12 +11613,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     const msg = (rawMsg || '').toLowerCase();
 
-    const lockIcon = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+    const lockIcon = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>`;
     const searchIcon = `<svg width="20" height="20" class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/> <circle cx="11" cy="11" r="8"/></svg>`;
-    const clockIcon = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+    const clockIcon = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>`;
     const networkIcon = `<svg width="20" height="20" class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h.01"/> <path d="M8.5 16.429a5 5 0 0 1 7 0"/> <path d="M5 12.859a10 10 0 0 1 5.17-2.69"/> <path d="M19 12.859a10 10 0 0 0-2.007-1.523"/> <path d="M2 8.82a15 15 0 0 1 4.177-2.643"/> <path d="M22 8.82a15 15 0 0 0-11.288-3.764"/> <path d="m2 2 20 20"/></svg>`;
-    const restrictedIcon = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>`;
-    const unknownIcon = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+    const restrictedIcon = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><path d="M4.929 4.929 19.07 19.071" /></svg>`;
+    const unknownIcon = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" /></svg>`;
 
     if (body && typeof body === 'object') {
       if (body.code === 'spotify_incomplete') {
@@ -14099,6 +14142,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     `;
   }
 
+  // Hybrid layout: "Popular songs" table under the release row.
+  function renderHomeTable(title, tracks) {
+    const wrap = document.getElementById('hy-home-table');
+    const list = document.getElementById('hy-home-tracks');
+    if (!wrap || !list) return;
+    const rows = (tracks || []).filter(Boolean).slice(0, 10);
+    wrap.hidden = rows.length === 0;
+    list.innerHTML = '';
+    const heading = document.getElementById('hy-table-title');
+    if (heading) heading.textContent = title;
+    const currentId = state.currentTrack ? getTrackCanonicalId(state.currentTrack) : '';
+    rows.forEach((track, idx) => list.appendChild(createTrackRow(track, idx, currentId, 'home', rows, list)));
+    const playAll = document.getElementById('btn-home-table-play');
+    if (playAll) playAll.onclick = () => rows.length && playTrack(rows[0], rows.slice(), 0, 'home');
+  }
+
   function renderHomeCarousel(mode) {
     if (!mode) mode = homeMode || 'wave';
     homeMode = mode;
@@ -14158,6 +14217,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       fragment.appendChild(buildHomeCard(track, mode, idx));
     });
     vibeGrid.appendChild(fragment);
+    renderHomeTable(mode === 'recent' ? 'Recently played' : (state.isHotPicks && state.hotPicksTitle ? state.hotPicksTitle : 'Popular songs'), source);
 
     const firstThumb = (typeof getTrackThumbUrl === 'function' ? getTrackThumbUrl(source[0]) : '') || source[0].thumbnail || source[0].cover || source[0].image || '';
 
@@ -15007,10 +15067,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   let toolsWavyFf = null;
 
   const STATUS_ICONS = {
-    pending: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--md-sys-color-outline);"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+    pending: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--md-sys-color-outline);"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>',
     downloading: '<svg class="g-spinner" style="width: 18px; height: 18px;" viewBox="0 0 48 48"><circle cx="24" cy="24" r="20"/></svg>',
     done: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: #4cd964;"><polyline points="20 6 9 17 4 12"/></svg>',
-    error: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--md-sys-color-error, #ff5449);"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+    error: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--md-sys-color-error, #ff5449);"><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" /></svg>'
   };
 
   function updateToolsUI(data) {
