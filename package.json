@@ -14,7 +14,7 @@
     "release:major": "npm version major && git push --follow-tags"
   },
   "keywords": [],
-  "author": "rootscripts",
+  "author": "Alejandro Kundrah",
   "license": "MIT",
   "description": "made for humans, Waev Pro - audio player.",
   "devDependencies": {
