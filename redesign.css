@@ -647,6 +647,25 @@ body.layout-hybrid .my-wave-track-card .my-wave-track-artist {
 }
 body.layout-hybrid .my-wave-track-play-overlay { right: 10px; bottom: 10px; width: 44px; height: 44px; }
 
+/* ---------- Home "Popular songs" table ---------- */
+.hy-home-table { display: none; }
+body.layout-hybrid .hy-home-table:not([hidden]) {
+  display: block;
+  margin-top: 28px;
+  padding-bottom: 24px;
+}
+body.layout-hybrid .hy-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+body.layout-hybrid .hy-section-head .hy-row-title { margin: 0; }
+body.layout-hybrid .hy-home-table .tracks-list { display: flex; flex-direction: column; }
+body.layout-hybrid .hy-home-table .track-row { border-radius: 0; border-bottom: 1px solid var(--hy-hairline); }
+body.layout-hybrid .hy-home-table .track-row:hover,
+body.layout-hybrid .hy-home-table .track-row.playing { border-radius: 20px; border-bottom-color: transparent; }
+
 /* ---------- Track lists (Weav "Popular Song" table, M3 list items) ---------- */
 
 body.layout-hybrid .track-row {

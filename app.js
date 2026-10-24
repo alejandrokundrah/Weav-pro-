@@ -14099,6 +14099,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     `;
   }
 
+  // Hybrid layout: "Popular songs" table under the release row.
+  function renderHomeTable(title, tracks) {
+    const wrap = document.getElementById('hy-home-table');
+    const list = document.getElementById('hy-home-tracks');
+    if (!wrap || !list) return;
+    const rows = (tracks || []).filter(Boolean).slice(0, 10);
+    wrap.hidden = rows.length === 0;
+    list.innerHTML = '';
+    const heading = document.getElementById('hy-table-title');
+    if (heading) heading.textContent = title;
+    const currentId = state.currentTrack ? getTrackCanonicalId(state.currentTrack) : '';
+    rows.forEach((track, idx) => list.appendChild(createTrackRow(track, idx, currentId, 'home', rows, list)));
+    const playAll = document.getElementById('btn-home-table-play');
+    if (playAll) playAll.onclick = () => rows.length && playTrack(rows[0], rows.slice(), 0, 'home');
+  }
+
   function renderHomeCarousel(mode) {
     if (!mode) mode = homeMode || 'wave';
     homeMode = mode;
@@ -14158,6 +14174,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       fragment.appendChild(buildHomeCard(track, mode, idx));
     });
     vibeGrid.appendChild(fragment);
+    renderHomeTable(mode === 'recent' ? 'Recently played' : (state.isHotPicks && state.hotPicksTitle ? state.hotPicksTitle : 'Popular songs'), source);
 
     const firstThumb = (typeof getTrackThumbUrl === 'function' ? getTrackThumbUrl(source[0]) : '') || source[0].thumbnail || source[0].cover || source[0].image || '';
 
