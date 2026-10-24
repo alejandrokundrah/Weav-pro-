@@ -6652,6 +6652,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (e) {}
   }
 
+  // ----- Artist page: listener stat, Play, Follow -----
+  const FOLLOW_KEY = 'waev_followed_artists';
+  const getFollowed = () => { try { const v = JSON.parse(localStorage.getItem(FOLLOW_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; } };
+  const followKey = (n) => String(n || '').trim().toLowerCase();
+  function setArtistStat(artist) {
+    const box = document.getElementById('artist-stat');
+    const txt = document.getElementById('artist-stat-text');
+    if (!box || !txt) return;
+    const fans = artist && artist.fans;
+    box.classList.toggle('hidden', !fans);
+    if (fans) txt.innerHTML = `<strong>${Number(fans).toLocaleString()}</strong> fans`;
+  }
+  function syncFollowButton() {
+    const btn = document.getElementById('btn-artist-follow');
+    if (!btn) return;
+    const on = getFollowed().includes(followKey(state.currentArtistName));
+    btn.classList.toggle('is-following', on);
+    btn.setAttribute('aria-pressed', String(on));
+    const label = document.getElementById('artist-follow-label');
+    if (label) label.textContent = on ? 'Following' : 'Follow';
+  }
+  const btnArtistFollow = document.getElementById('btn-artist-follow');
+  if (btnArtistFollow) btnArtistFollow.addEventListener('click', () => {
+    const key = followKey(state.currentArtistName);
+    if (!key) return;
+    const list = getFollowed();
+    const next = list.includes(key) ? list.filter(k => k !== key) : [...list, key];
+    try { localStorage.setItem(FOLLOW_KEY, JSON.stringify(next)); } catch (_) {}
+    syncFollowButton();
+  });
+  const btnArtistPlay = document.getElementById('btn-artist-play');
+  if (btnArtistPlay) btnArtistPlay.addEventListener('click', () => {
+    const tracks = state.currentArtistTracks || [];
+    if (tracks.length) playTrack(tracks[0], tracks.slice(), 0, 'artist');
+  });
+
   async function openArtistProfile(artistName) {
     if (!artistName || !artistName.trim()) return;
     const cleanName = artistName.replace(/ - Topic|VEVO|Official|Records/gi, '').trim();
@@ -6678,6 +6714,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (wrap) wrap.classList.add('loading');
     if (el.artistAvatarFallback) el.artistAvatarFallback.style.display = 'flex';
     if (el.artistVerifiedBadge) el.artistVerifiedBadge.classList.add('hidden');
+    state.currentArtistTracks = [];
+    state.currentArtistName = cleanName;
+    setArtistStat(null);
+    syncFollowButton();
     if (el.artistHeroBackdrop) el.artistHeroBackdrop.style.backgroundImage = '';
     if (el.artistTracksList) el.artistTracksList.innerHTML = '<div class="empty-hint">Fetching official releases...</div>';
 
@@ -6726,6 +6766,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       if (el.artistVerifiedBadge) el.artistVerifiedBadge.classList.toggle('hidden', !data.artist.isVerified);
+      setArtistStat(data.artist);
+      state.currentArtistTracks = data.artist.tracks || [];
+      syncFollowButton();
 
       if (data.artist.avatar) {
         if (el.artistAvatarImg) {

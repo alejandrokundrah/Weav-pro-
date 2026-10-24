@@ -439,14 +439,28 @@
                 <span>Verified artist</span>
               </div>
               <h1 class="artist-title" id="artist-profile-name">Artist</h1>
+              <div class="artist-stat hidden" id="artist-stat">
+                <svg width="20" height="20" class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/></svg>
+                <span id="artist-stat-text"></span>
+              </div>
               <p class="artist-bio-snippet hidden" id="artist-profile-bio"></p>
+              <div class="artist-actions">
+                <button class="btn-pill-primary" id="btn-artist-play" type="button">
+                  <svg width="16" height="16" class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></svg>
+                  <span>Play</span>
+                </button>
+                <button class="btn-outline-pill" id="btn-artist-follow" type="button" aria-pressed="false">
+                  <svg class="follow-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span id="artist-follow-label">Follow</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
         <div class="artist-content-section" id="artist-albums-section" style="display:none;">
           <div class="section-sub-header">
-            <h3>Albums</h3>
+            <h3>Popular releases</h3>
             <span class="view-subtitle" id="artist-albums-count"></span>
           </div>
           <div id="artist-albums-grid" style="display:flex;flex-wrap:wrap;gap:16px;"></div>
@@ -454,7 +468,7 @@
 
         <div class="artist-content-section">
           <div class="section-sub-header">
-            <h3>Popular tracks</h3>
+            <h3>Popular songs</h3>
             <span class="view-subtitle" id="artist-tracks-count">0 tracks</span>
           </div>
           <div class="tracks-list" id="artist-tracks-list"></div>

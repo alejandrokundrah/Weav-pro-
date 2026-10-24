@@ -920,3 +920,99 @@ body.layout-hybrid .btn-play-pause { width: 56px; height: 56px; }
   body.layout-hybrid .right-panel { display: none; }
   body.layout-hybrid #section-my-wave .my-wave-focused-meta { width: 86%; }
 }
+
+/* ---------- Artist page (Weav artist hero: badge, name, stat, Play + Following) ---------- */
+
+body.layout-hybrid .artist-hero-card {
+  display: flex;
+  align-items: center;
+  min-height: var(--hy-hero-h);
+  padding: 64px 40px 36px;
+  margin-bottom: 28px;
+  border-radius: 28px;
+  background: var(--md-sys-color-surface-container);
+  isolation: isolate;
+}
+body.layout-hybrid #artist-hero-backdrop { opacity: 0.35; }
+body.layout-hybrid .btn-back-artist {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  margin: 0;
+  z-index: 3;
+}
+body.layout-hybrid .artist-card-body { position: static; width: 100%; }
+body.layout-hybrid .artist-avatar-wrap {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 58%;
+  height: auto;
+  border-radius: 0;
+  background: none;
+  z-index: 0;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 55%);
+  mask-image: linear-gradient(to right, transparent 0%, #000 55%);
+}
+body.layout-hybrid .artist-avatar-img { width: 100%; height: 100%; object-fit: cover; object-position: center 22%; }
+body.layout-hybrid .artist-avatar-fallback { display: none !important; }
+body.layout-hybrid .artist-meta-box { position: relative; z-index: 2; max-width: 56%; gap: 12px; }
+body.layout-hybrid .artist-verified-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: calc(15px * var(--font-scale, 1));
+}
+body.layout-hybrid .artist-verified-badge.hidden { display: none; }
+body.layout-hybrid .artist-verified-badge svg { color: var(--md-sys-color-primary); width: 20px; height: 20px; }
+body.layout-hybrid .artist-title {
+  font-size: clamp(40px, 5.2vw, 64px);
+  line-height: 1.05;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+body.layout-hybrid .artist-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: calc(16px * var(--font-scale, 1));
+}
+body.layout-hybrid .artist-stat.hidden { display: none; }
+body.layout-hybrid .artist-stat strong { color: var(--md-sys-color-on-surface); font-weight: 500; }
+body.layout-hybrid .artist-bio-snippet {
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  max-width: 46ch;
+}
+body.layout-hybrid .artist-actions { display: flex; gap: 12px; margin-top: 8px; }
+body.layout-hybrid .artist-actions .btn-pill-primary,
+body.layout-hybrid .artist-actions .btn-outline-pill { height: 48px; padding: 0 28px; font-size: calc(15px * var(--font-scale, 1)); }
+body.layout-hybrid .artist-actions .follow-check { display: none; }
+body.layout-hybrid .artist-actions .is-following .follow-check { display: inline-block; }
+body.layout-hybrid .artist-actions .is-following {
+  background: color-mix(in srgb, var(--md-sys-color-primary) 14%, transparent);
+  border-color: var(--md-sys-color-primary);
+}
+/* actions are only meaningful in the hybrid layout */
+.artist-actions, .artist-stat { display: none; }
+body.layout-hybrid .artist-actions { display: flex; }
+body.layout-hybrid .artist-stat:not(.hidden) { display: inline-flex; }
+
+body.layout-hybrid .artist-content-section { margin-bottom: 28px; }
+body.layout-hybrid .artist-content-section .section-sub-header h3 {
+  font-size: calc(22px * var(--font-scale, 1));
+  font-weight: 500;
+}
+body.layout-hybrid #artist-albums-grid {
+  flex-wrap: nowrap !important;
+  overflow-x: auto;
+  gap: 20px !important;
+  padding-bottom: 8px;
+  scrollbar-width: none;
+}
+body.layout-hybrid #artist-albums-grid .search-album-card { width: 156px; flex-basis: 156px; }
+body.layout-hybrid #artist-albums-grid .search-album-cover { width: 156px; height: 156px; border-radius: 20px; }
+body.layout-hybrid #artist-tracks-list .track-row { border-radius: 0; border-bottom: 1px solid var(--hy-hairline); }
+body.layout-hybrid #artist-tracks-list .track-row:hover,
+body.layout-hybrid #artist-tracks-list .track-row.playing { border-radius: 20px; border-bottom-color: transparent; }
