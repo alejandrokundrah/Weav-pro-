@@ -450,7 +450,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     paletteStyle: localStorage.getItem('waev_palette_style') || 'classic',
     meshBrightness: parseInt(localStorage.getItem('waev_mesh_brightness') || '100', 10),
     themeAccent: localStorage.getItem('waev_theme_accent') || '#49C4E2',
-    themeIntensity: parseInt(localStorage.getItem('waev_theme_intensity') || '0'),
+    themeIntensity: parseInt(localStorage.getItem('waev_theme_intensity') || '70'),
     themeBrightness: parseInt(localStorage.getItem('waev_theme_brightness') || '50'),
     trEnabled: localStorage.getItem('waev_tr_enabled') === 'true',
     trLang: localStorage.getItem('waev_tr_lang') || 'en',
@@ -1849,7 +1849,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     applyDrawerState(triggerBtn);
   }
 
+  const isHybridLayout = () => document.body.classList.contains('layout-hybrid');
+
   function closeDrawer() {
+    if (isHybridLayout()) {
+      openDrawerState = 'playlists';
+      applyDrawerState(btnTogglePlaylists);
+      return;
+    }
     openDrawerState = null;
     applyDrawerState();
   }
@@ -1857,7 +1864,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (btnTogglePresets) {
     btnTogglePresets.addEventListener('click', (e) => {
       e.stopPropagation();
-      openDrawerState = openDrawerState === 'presets' ? null : 'presets';
+      openDrawerState = openDrawerState === 'presets' ? (isHybridLayout() ? 'playlists' : null) : 'presets';
       applyDrawerState(btnTogglePresets);
     });
   }
@@ -1865,7 +1872,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (btnTogglePlaylists) {
     btnTogglePlaylists.addEventListener('click', (e) => {
       e.stopPropagation();
-      openDrawerState = openDrawerState === 'playlists' ? null : 'playlists';
+      openDrawerState = openDrawerState === 'playlists' && !isHybridLayout() ? null : 'playlists';
       applyDrawerState(btnTogglePlaylists);
     });
   }
@@ -13771,6 +13778,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   let ambientIdx = 0;
   let currentAmbientUrl = null;
   async function setHomeAmbient(url) {
+    const heroPane = document.getElementById('section-my-wave');
+    if (heroPane) heroPane.style.setProperty('--hy-hero-art', url ? `url(${JSON.stringify(url)})` : 'none');
     const box = document.getElementById('home-ambient');
     if (!box) return;
     const layers = box.querySelectorAll('.home-ambient-layer');
@@ -14051,6 +14060,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           <svg width="24" height="24" class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"/></svg>
         </div>
       </div>
+      <div class="my-wave-track-meta">
+        <div class="my-wave-track-title">${escapeHtml(track.title || 'Untitled')}</div>
+        <div class="my-wave-track-artist">${escapeHtml(track.artist || 'Unknown')}</div>
+      </div>
     `;
 
     card.addEventListener('click', () => {
@@ -14094,6 +14107,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (headerLabel) {
       const waveLabel = (state.isHotPicks && state.hotPicksTitle) ? state.hotPicksTitle : 'My Wave';
       headerLabel.textContent = (mode === 'recent') ? 'Jump back in' : waveLabel;
+      const rowTitle = document.getElementById('hy-row-title');
+      if (rowTitle) rowTitle.textContent = (mode === 'recent') ? 'Recently played' : 'Picked for you';
       headerLabel.style.cursor = availableModes().length > 1 ? 'pointer' : 'default';
       headerLabel.style.pointerEvents = 'auto';
       if (!headerLabel._hasToggleListener) {
@@ -14445,6 +14460,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             state.hotPicksTitle = hotData.title || `Hot picks ${new Date().getFullYear()}`;
           }
         } catch (_) {}
+      }
+
+      if (uniqueTracks.length === 0) {
+        // Offline / no recommendations: fall back to the user's own library so
+        // the hero and release row are never empty.
+        const own = [...(state.history || []), ...(state.favorites || [])].filter(t => t && t.id && t.title);
+        const seenOwn = new Set();
+        uniqueTracks = own.filter(t => (seenOwn.has(t.id) ? false : (seenOwn.add(t.id), true))).slice(0, 12);
+        if (uniqueTracks.length > 0) {
+          state.isHotPicks = true;
+          state.hotPicksTitle = 'From your library';
+        }
       }
 
       if (uniqueTracks.length === 0) {
@@ -15854,6 +15881,61 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (el.btnDedupePlaylist) el.btnDedupePlaylist.addEventListener('click', removePlaylistDuplicates);
 
   restoreQueueState();
+
+  // ===== Hybrid layout: sidebar playlists, recent rail, progress line =====
+  if (document.body.classList.contains('layout-hybrid')) {
+    openDrawer('playlists', btnTogglePlaylists);
+
+    const recentList = document.getElementById('rail-recent-list');
+    const recentSection = document.getElementById('rail-recent');
+    const relTime = (ts) => {
+      if (!ts) return '';
+      const m = Math.max(0, Math.round((Date.now() - ts) / 60000));
+      if (m < 1) return 'now';
+      if (m < 60) return `${m}min ago`;
+      const h = Math.round(m / 60);
+      if (h < 24) return `${h}h ago`;
+      return `${Math.round(h / 24)}d ago`;
+    };
+    function renderRecentRail() {
+      if (!recentList) return;
+      const tracks = (Array.isArray(state.history) ? state.history : []).filter(Boolean).slice(0, 12);
+      if (recentSection) recentSection.classList.toggle('is-empty', tracks.length === 0);
+      recentList.innerHTML = '';
+      tracks.forEach((track, idx) => {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'rail-recent-item';
+        const thumb = (typeof getTrackThumbUrl === 'function' ? getTrackThumbUrl(track) : '') || track.thumbnail || '';
+        row.innerHTML = `
+          <img class="rail-recent-thumb" src="${escapeHtml(thumb)}" alt="" onerror="this.style.visibility='hidden'">
+          <span class="rail-recent-meta">
+            <span class="rail-recent-name">${escapeHtml(track.title || 'Untitled')}</span>
+            <span class="rail-recent-artist">${escapeHtml(track.artist || 'Unknown artist')}</span>
+          </span>
+          <span class="rail-recent-time">${escapeHtml(relTime(track.playedAt))}</span>`;
+        row.addEventListener('click', () => playTrack(track, state.history.slice(), idx, 'history'));
+        recentList.appendChild(row);
+      });
+    }
+    renderRecentRail();
+    const titleNode = document.getElementById('playbar-title');
+    if (titleNode) new MutationObserver(() => setTimeout(renderRecentRail, 400)).observe(titleNode, { childList: true, characterData: true, subtree: true });
+    const seeAll = document.getElementById('btn-recent-see-all');
+    if (seeAll) seeAll.addEventListener('click', () => { const nav = document.getElementById('nav-history'); if (nav) nav.click(); });
+
+    const playbarNode = document.getElementById('playbar');
+    const audioNode = document.getElementById('native-audio');
+    if (playbarNode && audioNode) {
+      const syncProgress = () => {
+        const d = audioNode.duration;
+        playbarNode.style.setProperty('--hy-progress', (d && isFinite(d)) ? `${Math.min(100, (audioNode.currentTime / d) * 100).toFixed(2)}%` : '0%');
+      };
+      audioNode.addEventListener('timeupdate', syncProgress);
+      audioNode.addEventListener('emptied', syncProgress);
+      audioNode.addEventListener('loadedmetadata', syncProgress);
+    }
+  }
 
   emitPluginEvent('ready');
 });
