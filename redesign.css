@@ -1016,3 +1016,8 @@ body.layout-hybrid #artist-albums-grid .search-album-cover { width: 156px; heigh
 body.layout-hybrid #artist-tracks-list .track-row { border-radius: 0; border-bottom: 1px solid var(--hy-hairline); }
 body.layout-hybrid #artist-tracks-list .track-row:hover,
 body.layout-hybrid #artist-tracks-list .track-row.playing { border-radius: 20px; border-bottom-color: transparent; }
+
+/* Solid transport icons (play / pause / previous / next) */
+body.layout-hybrid #btn-play-pause svg[fill="currentColor"],
+body.layout-hybrid #btn-prev svg[fill="currentColor"],
+body.layout-hybrid #btn-next svg[fill="currentColor"] { stroke-linejoin: round; }
