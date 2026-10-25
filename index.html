@@ -1196,46 +1196,6 @@
               </div>
             </div>
 
-            <div class="setting-item" id="card-scrobbling">
-              <div class="setting-item-top" style="align-items: center; justify-content: space-between;">
-                <div style="display: flex; flex-direction: column; gap: 2px;">
-                  <span class="setting-name">Scrobbling</span>
-                  <span style="font-size: calc(12px * var(--font-scale, 1)); color: var(--md-sys-color-outline);">Record what you listen to on Last.fm and ListenBrainz. Nothing is sent until you connect an account.</span>
-                </div>
-                <button class="effect-switch-btn active" data-adv="scrobble"><span class="thumb"></span></button>
-              </div>
-
-              <div class="scrobble-service" id="scrobble-lb">
-                <div class="scrobble-service-head">
-                  <span class="scrobble-service-name">ListenBrainz</span>
-                  <span class="scrobble-status" id="scrobble-lb-status">Not connected</span>
-                </div>
-                <div class="scrobble-fields" id="scrobble-lb-fields">
-                  <input type="password" class="scrobble-input" id="scrobble-lb-token" placeholder="User token (listenbrainz.org/settings)" autocomplete="off" spellcheck="false" aria-label="ListenBrainz user token">
-                  <button class="btn-pill-primary" id="btn-scrobble-lb-connect" type="button">Connect</button>
-                </div>
-                <button class="btn-outline-pill hidden" id="btn-scrobble-lb-disconnect" type="button">Disconnect</button>
-              </div>
-
-              <div class="scrobble-service" id="scrobble-lf">
-                <div class="scrobble-service-head">
-                  <span class="scrobble-service-name">Last.fm</span>
-                  <span class="scrobble-status" id="scrobble-lf-status">Not connected</span>
-                </div>
-                <div class="scrobble-fields" id="scrobble-lf-fields">
-                  <input type="text" class="scrobble-input" id="scrobble-lf-key" placeholder="API key" autocomplete="off" spellcheck="false" aria-label="Last.fm API key">
-                  <input type="password" class="scrobble-input" id="scrobble-lf-secret" placeholder="Shared secret" autocomplete="off" spellcheck="false" aria-label="Last.fm shared secret">
-                  <button class="btn-pill-primary" id="btn-scrobble-lf-connect" type="button">Connect</button>
-                </div>
-                <div class="scrobble-hint" id="scrobble-lf-hint">Create your own key at <a href="https://www.last.fm/api/account/create" target="_blank" rel="noopener">last.fm/api/account/create</a>, then paste it here.</div>
-                <button class="btn-pill-primary hidden" id="btn-scrobble-lf-finish" type="button">I approved it, finish</button>
-                <button class="btn-outline-pill hidden" id="btn-scrobble-lf-disconnect" type="button">Disconnect</button>
-              </div>
-
-              <div class="scrobble-hint hidden" id="scrobble-note">Secure storage is not available on this system, so these logins are kept only until you close the app.</div>
-              <div class="scrobble-hint hidden" id="scrobble-error" role="alert"></div>
-            </div>
-
             <div class="setting-item" id="card-spotify-import">
               <div class="setting-item-top" style="align-items: center; justify-content: space-between;">
                 <div style="display: flex; align-items: center; gap: 10px;">
@@ -1437,33 +1397,6 @@
                         <span style="font-size: calc(12px * var(--font-scale, 1)); color: var(--md-sys-color-outline);">Fetch synced and plain lyrics from network providers</span>
                       </div>
                       <button class="effect-switch-btn active" data-adv="online_lyrics"><span class="thumb"></span></button>
-                    </div>
-                  </div>
-
-                  <div class="setting-item">
-                    <div class="setting-item-top" style="align-items: center;">
-                      <div style="display: flex; flex-direction: column; gap: 2px;">
-                        <span class="setting-name">Lyrics source</span>
-                        <span style="font-size: calc(12px * var(--font-scale, 1)); color: var(--md-sys-color-outline);">LRCLIB is the default. Other sources send the track title and artist to that service (Apple Music lyrics come from the community catalogue lyrics-api.binimum.org, not from Apple; also NetEase, KuGou, Musixmatch)</span>
-                      </div>
-                      <select class="pill-select" id="select-lyrics-source" aria-label="Lyrics source">
-                        <option value="lrclib">LRCLIB</option>
-                        <option value="apple">Apple Music (community catalogue)</option>
-                        <option value="netease">NetEase</option>
-                        <option value="kugou">KuGou</option>
-                        <option value="musixmatch">Musixmatch (needs API key)</option>
-                        <option value="auto">Auto (try each in turn)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div class="setting-item">
-                    <div class="setting-item-top" style="align-items: center;">
-                      <div style="display: flex; flex-direction: column; gap: 2px;">
-                        <span class="setting-name">Musixmatch API key</span>
-                        <span style="font-size: calc(12px * var(--font-scale, 1)); color: var(--md-sys-color-outline);">Optional. Your own key from developer.musixmatch.com, stored only on this device. The free plan returns partial plain lyrics.</span>
-                      </div>
-                      <input type="password" class="pill-select" id="input-musixmatch-key" placeholder="API key" autocomplete="off" spellcheck="false" aria-label="Musixmatch API key" style="min-width: 180px;">
                     </div>
                   </div>
 
