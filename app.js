@@ -3143,7 +3143,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     syncTvLayout(!!isEmpty);
   }
 
-  const LYRICS_SOURCES = ['lrclib', 'netease', 'auto'];
+  const LYRICS_SOURCES = ['lrclib', 'netease', 'kugou', 'musixmatch', 'auto'];
   function getLyricsSource() {
     let v = 'lrclib';
     try { v = localStorage.getItem('waev_lyrics_source') || 'lrclib'; } catch (_) {}
@@ -3156,6 +3156,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       try { localStorage.setItem('waev_lyrics_source', lyricsSourceSelect.value); } catch (_) {}
       const t = state.currentTrack;
       if (t && t.title) loadSyncedLyrics(t.title || '', t.artist || '', state.loadToken);
+    });
+  }
+
+  function getMusixmatchKey() { try { return (localStorage.getItem('waev_musixmatch_key') || '').trim(); } catch (_) { return ''; } }
+  const mxmKeyInput = document.getElementById('input-musixmatch-key');
+  if (mxmKeyInput) {
+    mxmKeyInput.value = getMusixmatchKey();
+    mxmKeyInput.addEventListener('change', () => {
+      try { localStorage.setItem('waev_musixmatch_key', mxmKeyInput.value.trim()); } catch (_) {}
+      const t = state.currentTrack;
+      if (t && t.title && ['musixmatch', 'auto'].includes(getLyricsSource())) loadSyncedLyrics(t.title || '', t.artist || '', state.loadToken);
     });
   }
 
@@ -3178,7 +3189,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       const onlineParam = getAdv('online_lyrics', true) ? '1' : '0';
       const lyricsSource = getLyricsSource();
-      const res = await fetch(`http://127.0.0.1:${state.serverPort}/api/lyrics?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}&source=${lyricsSource}&online=${onlineParam}`);
+      const res = await fetch(`http://127.0.0.1:${state.serverPort}/api/lyrics?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}&source=${lyricsSource}&online=${onlineParam}${getMusixmatchKey() && (lyricsSource === 'musixmatch' || lyricsSource === 'auto') ? `&mxkey=${encodeURIComponent(getMusixmatchKey())}` : ''}`);
       const data = await res.json();
 
       if (token !== state.loadToken || (state.currentTrack && (state.currentTrack.title || '') !== title)) return;

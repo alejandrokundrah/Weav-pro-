@@ -90,19 +90,83 @@ async function fetchNeteaseLyrics(title, artist) {
 
 const hasTimestamps = (lrc) => typeof lrc === 'string' && /\[\d+:\d+(\.\d+)?\]/.test(lrc);
 
-// source: 'lrclib' (default, LRCLIB only), 'netease' (NetEase only),
-//         'auto' (LRCLIB first, NetEase when LRCLIB has no synced lyrics).
-async function fetchLyricsBySource(source, title, artist, fetchLrclib) {
-  if (source === 'netease') return (await fetchNeteaseLyrics(title, artist)) || '';
-  const first = await fetchLrclib(title, artist);
-  if (source !== 'auto' || hasTimestamps(first)) return first;
-  const second = await fetchNeteaseLyrics(title, artist);
-  if (hasTimestamps(second)) return second;
-  return first || second || '';
+// KuGou (unofficial public endpoints, no key): find the song, find its lyric candidate, download.
+async function fetchKugouLyrics(title, artist) {
+  const query = `${cleanQueryText(title)} ${cleanQueryText(artist)}`.trim();
+  if (!query) return null;
+
+  const search = await getJson(
+    `https://mobiles.kugou.com/api/v3/search/song?format=json&keyword=${encodeURIComponent(query)}&page=1&pagesize=8&showtype=1`
+  );
+  const infos = search && search.data && search.data.info;
+  const song = pickSong(
+    (infos || []).map((i) => ({ ...i, name: i.songname, artists: [{ name: i.singername }] })),
+    title, artist
+  );
+  if (!song || !song.hash) return null;
+
+  const duration = Math.max(0, Number(song.duration) || 0) * 1000;
+  const found = await getJson(
+    `https://lyrics.kugou.com/search?ver=1&man=yes&client=pc&keyword=${encodeURIComponent(query)}&duration=${duration}&hash=${encodeURIComponent(song.hash)}`
+  );
+  const candidate = found && Array.isArray(found.candidates) && found.candidates[0];
+  if (!candidate || !candidate.id || !candidate.accesskey) return null;
+
+  const dl = await getJson(
+    `https://lyrics.kugou.com/download?ver=1&client=pc&id=${encodeURIComponent(candidate.id)}&accesskey=${encodeURIComponent(candidate.accesskey)}&fmt=lrc&charset=utf8`
+  );
+  if (!dl || typeof dl.content !== 'string' || !dl.content) return null;
+  let text = '';
+  try { text = Buffer.from(dl.content, 'base64').toString('utf8').replace(/^\uFEFF/, ''); } catch (_) { return null; }
+  const lrc = cleanLrc(text);
+  return lrc.length > 0 ? lrc : null;
+}
+
+// Musixmatch through its OFFICIAL public API, with the user's own API key. The free plan only returns
+// plain, partial lyrics; synced lyrics need a plan that includes them (the call is tried first).
+async function fetchMusixmatchLyrics(title, artist, apiKey) {
+  if (!apiKey) return null;
+  const base = `q_track=${encodeURIComponent(cleanQueryText(title))}&q_artist=${encodeURIComponent(cleanQueryText(artist))}&apikey=${encodeURIComponent(apiKey)}`;
+  const sub = await getJson(`https://api.musixmatch.com/ws/1.1/matcher.subtitle.get?${base}&subtitle_format=lrc`);
+  const synced = sub && sub.message && sub.message.header && sub.message.header.status_code === 200
+    && sub.message.body && sub.message.body.subtitle && sub.message.body.subtitle.subtitle_body;
+  if (synced) return cleanLrc(synced);
+
+  const plain = await getJson(`https://api.musixmatch.com/ws/1.1/matcher.lyrics.get?${base}`);
+  const body = plain && plain.message && plain.message.header && plain.message.header.status_code === 200
+    && plain.message.body && plain.message.body.lyrics && plain.message.body.lyrics.lyrics_body;
+  if (!body) return null;
+  // Strip the licence footer Musixmatch appends ("*******  This Lyrics is NOT for Commercial use  *******").
+  const text = String(body).split(/\n?\*{5,}/)[0].trim();
+  return text || null;
+}
+
+const SOURCES = ['lrclib', 'netease', 'kugou', 'musixmatch', 'auto'];
+const AUTO_ORDER = ['lrclib', 'netease', 'kugou', 'musixmatch'];
+
+// source: one of SOURCES. 'lrclib' (default) only ever talks to LRCLIB.
+// 'auto' walks AUTO_ORDER and stops at the first synced result, otherwise returns the best plain one.
+async function fetchLyricsBySource(source, title, artist, fetchLrclib, options = {}) {
+  const run = {
+    lrclib: () => fetchLrclib(title, artist),
+    netease: () => fetchNeteaseLyrics(title, artist),
+    kugou: () => fetchKugouLyrics(title, artist),
+    musixmatch: () => fetchMusixmatchLyrics(title, artist, options.musixmatchKey),
+  };
+  if (source !== 'auto') return (run[source] ? await run[source]() : await run.lrclib()) || '';
+  let plain = '';
+  for (const name of AUTO_ORDER) {
+    if (name === 'musixmatch' && !options.musixmatchKey) continue;
+    let out = null;
+    try { out = await run[name](); } catch (_) {}
+    if (hasTimestamps(out)) return out;
+    if (!plain && out && out.trim()) plain = out;
+  }
+  return plain;
 }
 
 function normalizeSource(value) {
-  return value === 'netease' || value === 'auto' ? value : 'lrclib';
+  return SOURCES.includes(value) ? value : 'lrclib';
 }
 
-module.exports = { fetchNeteaseLyrics, fetchLyricsBySource, normalizeSource, pickSong, cleanLrc, hasTimestamps, normalize };
+module.exports = { fetchNeteaseLyrics, fetchKugouLyrics, fetchMusixmatchLyrics, SOURCES, fetchLyricsBySource, normalizeSource, pickSong, cleanLrc, hasTimestamps, normalize };
