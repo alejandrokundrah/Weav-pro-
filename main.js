@@ -319,7 +319,7 @@ function runGUI() {
     });
 
     ipcMain.on('open-external', (e, u) => {
-      if (/^https:\/\/accounts\.spotify\.com\//.test(String(u))) shell.openExternal(u);
+      if (/^https:\/\/(accounts\.spotify\.com|www\.last\.fm\/api\/auth)\//.test(String(u))) shell.openExternal(u);
     });
 
     let mainLogCount = 0;
