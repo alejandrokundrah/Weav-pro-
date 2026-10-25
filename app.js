@@ -3143,7 +3143,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     syncTvLayout(!!isEmpty);
   }
 
-  const LYRICS_SOURCES = ['lrclib', 'netease', 'kugou', 'musixmatch', 'auto'];
+  const LYRICS_SOURCES = ['lrclib', 'apple', 'netease', 'kugou', 'musixmatch', 'auto'];
   function getLyricsSource() {
     let v = 'lrclib';
     try { v = localStorage.getItem('waev_lyrics_source') || 'lrclib'; } catch (_) {}
@@ -16024,6 +16024,129 @@ document.addEventListener('DOMContentLoaded', async () => {
       audioNode.addEventListener('loadedmetadata', syncProgress);
     }
   }
+
+  // ===== Scrobbling (Last.fm + ListenBrainz) =====
+  (() => {
+    const QUEUE_KEY = 'waev_scrobble_queue';
+    const $ = (id) => document.getElementById(id);
+    const base = () => `http://127.0.0.1:${state.serverPort}/api/scrobble/`;
+    async function call(path, body) {
+      try {
+        const res = await fetch(base() + path, body === undefined ? {} : {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        });
+        return await res.json();
+      } catch (_) { return { success: false, error: 'The local server is not reachable.' }; }
+    }
+    let status = null;
+    const connected = () => !!(status && (status.lastfm.connected || status.listenbrainz.connected));
+    const enabled = () => getAdv('scrobble', true) && connected();
+
+    const showError = (msg) => { const n = $('scrobble-error'); if (!n) return; n.textContent = msg || ''; n.classList.toggle('hidden', !msg); };
+    function render() {
+      if (!status) return;
+      const lb = status.listenbrainz, lf = status.lastfm;
+      const set = (id, text) => { const n = $(id); if (n) n.textContent = text; };
+      const show = (id, on) => { const n = $(id); if (n) n.classList.toggle('hidden', !on); };
+      set('scrobble-lb-status', lb.connected ? `Connected${lb.user ? ' as ' + lb.user : ''}` : 'Not connected');
+      show('scrobble-lb-fields', !lb.connected); show('btn-scrobble-lb-disconnect', lb.connected);
+      set('scrobble-lf-status', lf.connected ? `Connected${lf.user ? ' as ' + lf.user : ''}` : (lf.awaitingApproval ? 'Waiting for approval in your browser' : 'Not connected'));
+      show('scrobble-lf-fields', !lf.connected && !lf.awaitingApproval); show('scrobble-lf-hint', !lf.connected && !lf.awaitingApproval);
+      show('btn-scrobble-lf-finish', !lf.connected && lf.awaitingApproval); show('btn-scrobble-lf-disconnect', lf.connected || lf.awaitingApproval);
+      show('scrobble-note', (lb.connected || lf.connected) && !status.persisted);
+    }
+    async function refresh() {
+      const s = await call('status');
+      if (s && s.success) { status = s; render(); if (connected()) flushQueue(); }
+    }
+    const adopt = (res) => { if (res && res.status) { status = { success: true, ...res.status }; render(); } };
+
+    const lbConnect = $('btn-scrobble-lb-connect');
+    if (lbConnect) lbConnect.addEventListener('click', async () => {
+      showError('');
+      const input = $('scrobble-lb-token');
+      const res = await call('listenbrainz-token', { token: input ? input.value : '' });
+      if (res.success) { if (input) input.value = ''; adopt(res); } else showError(res.error || 'Could not connect to ListenBrainz.');
+    });
+    const lfConnect = $('btn-scrobble-lf-connect');
+    if (lfConnect) lfConnect.addEventListener('click', async () => {
+      showError('');
+      const keys = await call('lastfm-keys', { apiKey: $('scrobble-lf-key').value, secret: $('scrobble-lf-secret').value });
+      if (!keys.success) return showError(keys.error);
+      const begin = await call('lastfm-begin', {});
+      if (!begin.success) return showError(begin.error);
+      $('scrobble-lf-secret').value = '';
+      if (window.electronAPI && window.electronAPI.openExternal) window.electronAPI.openExternal(begin.url);
+      await refresh();
+    });
+    const lfFinish = $('btn-scrobble-lf-finish');
+    if (lfFinish) lfFinish.addEventListener('click', async () => {
+      showError('');
+      const res = await call('lastfm-finish', {});
+      if (res.success) adopt(res); else showError(res.error);
+    });
+    const disconnectBtn = (id, service) => { const b = $(id); if (b) b.addEventListener('click', async () => { showError(''); adopt(await call('disconnect', { service })); }); };
+    disconnectBtn('btn-scrobble-lb-disconnect', 'listenbrainz');
+    disconnectBtn('btn-scrobble-lf-disconnect', 'lastfm');
+
+    // Offline queue: scrobbles that hit a network error or rate limit are retried later.
+    function readQueue() { try { const q = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); return Array.isArray(q) ? q : []; } catch (_) { return []; } }
+    function writeQueue(q) { try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q.slice(-200))); } catch (_) {} }
+    let flushing = false;
+    async function flushQueue() {
+      if (flushing) return;
+      flushing = true;
+      try {
+        let queue = readQueue();
+        const left = [];
+        for (const item of queue) {
+          const res = await call('submit', { ...item.meta, timestamp: item.timestamp, only: item.services });
+          const again = res && res.results ? Object.keys(res.results).filter((k) => res.results[k] === 'retry') : item.services;
+          // A service that is no longer connected returns nothing for it, so it drops out of the retry list.
+          if (again.length) left.push({ ...item, services: again });
+        }
+        writeQueue(left);
+      } finally { flushing = false; }
+    }
+    async function submit(meta, timestamp) {
+      const res = await call('submit', { ...meta, timestamp });
+      const retry = res && res.results ? Object.keys(res.results).filter((k) => res.results[k] === 'retry') : [];
+      if (!res || res.success === false && !res.results) retry.push(...['lastfm', 'listenbrainz'].filter((s) => status && status[s].connected));
+      if (retry.length) writeQueue([...readQueue(), { meta, timestamp, services: [...new Set(retry)] }]);
+      else if (readQueue().length) flushQueue();
+      if (res && res.results && Object.values(res.results).includes('auth')) refresh();
+    }
+
+    // Listening tracker: counts real playback time (seeks and pauses do not count).
+    const audio = $('native-audio');
+    let cur = null;
+    function metaOf(track) {
+      return { title: track.title || '', artist: track.artist || '', album: track.album || '', duration: (audio && isFinite(audio.duration) && audio.duration) || track.duration || 0 };
+    }
+    function begin(track, key) {
+      cur = { key, startedAt: Math.floor(Date.now() / 1000), listened: 0, last: audio.currentTime, submitted: false };
+      if (enabled()) call('nowplaying', metaOf(track));
+    }
+    if (audio) audio.addEventListener('timeupdate', () => {
+      const track = state.currentTrack;
+      if (!track || !enabled()) { if (!track) cur = null; return; }
+      const key = typeof getTrackCanonicalId === 'function' ? getTrackCanonicalId(track) : `${track.artist}:${track.title}`;
+      if (!cur || cur.key !== key) return begin(track, key);
+      const t = audio.currentTime;
+      const delta = t - cur.last;
+      cur.last = t;
+      if (delta < -5 && cur.submitted) return begin(track, key); // same track started over (repeat)
+      if (delta > 0 && delta < 3) cur.listened += delta;
+      const meta = metaOf(track);
+      if (!cur.submitted && scrobbleDue(meta.duration, cur.listened)) {
+        cur.submitted = true;
+        submit(meta, cur.startedAt);
+      }
+    });
+    function scrobbleDue(duration, listened) { return duration >= 30 && listened >= Math.min(duration / 2, 240); }
+
+    refresh();
+  })();
 
   emitPluginEvent('ready');
 });

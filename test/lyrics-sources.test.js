@@ -18,7 +18,7 @@ function stubHttps(routes) {
       res.statusCode = hit.status || 200;
       res.resume = () => {};
       cb(res);
-      res.emit('data', Buffer.from(JSON.stringify(hit.body)));
+      res.emit('data', Buffer.from(typeof hit.body === 'string' ? hit.body : JSON.stringify(hit.body)));
       res.emit('end');
     });
     return req;
@@ -168,5 +168,83 @@ test('auto returns the best plain lyrics when nothing is synced', async () => {
   const net = stubHttps([]);
   try {
     assert.strictEqual(await L.fetchLyricsBySource('auto', 'a', 'b', async () => 'only plain', {}), 'only plain');
+  } finally { net.restore(); }
+});
+
+const TTML = `<?xml version="1.0" encoding="UTF-8"?>
+<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:itunes="http://music.apple.com/lyric-ttml-internal" itunes:timing="Word">
+ <head><metadata><ttm:agent type="person" xml:id="v1"/><iTunesMetadata><songwriters><songwriter>Ed Sheeran</songwriter></songwriters></iTunesMetadata></metadata></head>
+ <body dur="3:20.0"><div begin="0.5s" end="30s">
+  <p begin="0:12.340" end="0:15.000" ttm:agent="v1"><span begin="0:12.340" end="0:13.000">I'm</span> <span begin="0:13.000" end="0:14.000">in</span> <span begin="0:14.000" end="0:15.000">love</span><span ttm:role="x-bg" begin="0:14.500" end="0:15.000"><span>(oh)</span></span><span ttm:role="x-translation" xml:lang="fr">Je suis amoureux</span></p>
+  <p begin="1:05.5" end="1:08.0"><span begin="1:05.5">Rock &amp; roll &#39;n&#39; soul</span></p>
+  <p begin="00:02:10.250" end="00:02:12.000">Plain line</p>
+ </div></body></tt>`;
+
+test('parseTtmlTime understands the TTML clock formats', () => {
+  assert.strictEqual(L.parseTtmlTime('12.5s'), 12.5);
+  assert.strictEqual(L.parseTtmlTime('1500ms'), 1.5);
+  assert.strictEqual(L.parseTtmlTime('1:02.5'), 62.5);
+  assert.strictEqual(L.parseTtmlTime('00:02:10.250'), 130.25);
+  assert.strictEqual(L.parseTtmlTime('7'), 7);
+  assert.ok(Number.isNaN(L.parseTtmlTime('soon')));
+  assert.ok(Number.isNaN(L.parseTtmlTime(undefined)));
+});
+
+test('ttmlToLrc keeps line starts, joins words, drops translation and background vocals', () => {
+  assert.strictEqual(L.ttmlToLrc(TTML), [
+    "[00:12.34]I'm in love",
+    "[01:05.50]Rock & roll 'n' soul",
+    '[02:10.25]Plain line',
+  ].join('\n'));
+});
+
+test('ttmlToLrc falls back to span times, then to plain text, and rejects junk', () => {
+  assert.strictEqual(L.ttmlToLrc('<tt><body><p><span begin="3s">Hi</span> <span begin="4s">there</span></p></body></tt>'), '[00:03.00]Hi there');
+  assert.strictEqual(L.ttmlToLrc('<tt><body><p>One</p><p>Two</p></body></tt>'), 'One\nTwo');
+  assert.strictEqual(L.ttmlToLrc('not xml'), '');
+  assert.strictEqual(L.ttmlToLrc(null), '');
+});
+
+test('the converted Apple lyrics are accepted by the same line pattern the player uses', () => {
+  const rx = /\[(\d+):(\d+(\.\d+)?)\](.*)/;
+  for (const line of L.ttmlToLrc(TTML).split('\n')) assert.ok(rx.test(line), line);
+});
+
+test('fetchAppleLyrics prefers word-timed matches, ignores wrong songs and unsafe sheet URLs', async () => {
+  const net = stubHttps([
+    { match: 'lyrics-api.binimum.org', body: { results: [
+      { track_name: 'Other Song', artist_name: 'Ed Sheeran', timing_type: 'word', lyricsUrl: 'https://cdn.example.org/other.ttml' },
+      { track_name: 'Shiver', artist_name: 'Ed Sheeran', timing_type: 'line', lyricsUrl: 'https://cdn.example.org/line.ttml' },
+      { track_name: 'Shiver', artist_name: 'Ed Sheeran', timing_type: 'word', lyricsUrl: 'http://cdn.example.org/insecure.ttml' },
+      { track_name: 'Shiver', artist_name: 'Ed Sheeran', timing_type: 'word', lyricsUrl: 'https://127.0.0.1/local.ttml' },
+      { track_name: 'Shiver', artist_name: 'Ed Sheeran', timing_type: 'syllable', lyricsUrl: 'https://cdn.example.org/word.ttml' },
+    ] } },
+    { match: 'cdn.example.org/word.ttml', body: TTML },
+    { match: 'cdn.example.org/line.ttml', body: '<tt><body><p begin="1s">WRONG ORDER</p></body></tt>' },
+  ]);
+  try {
+    const lrc = await L.fetchAppleLyrics('Shiver', 'Ed Sheeran');
+    assert.ok(lrc.startsWith("[00:12.34]I'm in love"));
+    assert.ok(net.calls.every((u) => !u.includes('other.ttml') && !u.includes('insecure') && !u.includes('127.0.0.1')));
+    assert.ok(net.calls[0].includes('track=Shiver') && net.calls[0].includes('artist=Ed+Sheeran'));
+  } finally { net.restore(); }
+});
+
+test('fetchAppleLyrics returns null when the catalogue has no match or is down', async () => {
+  let net = stubHttps([{ match: 'lyrics-api.binimum.org', body: { results: [] } }]);
+  try { assert.strictEqual(await L.fetchAppleLyrics('Shiver', 'Ed Sheeran'), null); } finally { net.restore(); }
+  net = stubHttps([]);
+  try { assert.strictEqual(await L.fetchAppleLyrics('Shiver', 'Ed Sheeran'), null); } finally { net.restore(); }
+});
+
+test('apple is a valid source and sits second in the Auto order, after LRCLIB', async () => {
+  assert.strictEqual(L.normalizeSource('apple'), 'apple');
+  const net = stubHttps([
+    { match: 'lyrics-api.binimum.org', body: { results: [{ track_name: 'a', artist_name: 'b', timing_type: 'word', lyricsUrl: 'https://cdn.example.org/s.ttml' }] } },
+    { match: 'cdn.example.org/s.ttml', body: '<tt><body><p begin="2s">from apple</p></body></tt>' },
+  ]);
+  try {
+    assert.strictEqual(await L.fetchLyricsBySource('auto', 'a', 'b', async () => 'plain from lrclib', {}), '[00:02.00]from apple');
+    assert.ok(!net.calls.some((u) => u.includes('163.com') || u.includes('kugou')));
   } finally { net.restore(); }
 });
