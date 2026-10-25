@@ -1404,13 +1404,25 @@
                     <div class="setting-item-top" style="align-items: center;">
                       <div style="display: flex; flex-direction: column; gap: 2px;">
                         <span class="setting-name">Lyrics source</span>
-                        <span style="font-size: calc(12px * var(--font-scale, 1)); color: var(--md-sys-color-outline);">LRCLIB is the default. NetEase and Auto send the track title and artist to music.163.com</span>
+                        <span style="font-size: calc(12px * var(--font-scale, 1)); color: var(--md-sys-color-outline);">LRCLIB is the default. Other sources send the track title and artist to that service (NetEase, KuGou or Musixmatch)</span>
                       </div>
                       <select class="pill-select" id="select-lyrics-source" aria-label="Lyrics source">
                         <option value="lrclib">LRCLIB</option>
                         <option value="netease">NetEase</option>
-                        <option value="auto">Auto (LRCLIB, then NetEase)</option>
+                        <option value="kugou">KuGou</option>
+                        <option value="musixmatch">Musixmatch (needs API key)</option>
+                        <option value="auto">Auto (try each in turn)</option>
                       </select>
+                    </div>
+                  </div>
+
+                  <div class="setting-item">
+                    <div class="setting-item-top" style="align-items: center;">
+                      <div style="display: flex; flex-direction: column; gap: 2px;">
+                        <span class="setting-name">Musixmatch API key</span>
+                        <span style="font-size: calc(12px * var(--font-scale, 1)); color: var(--md-sys-color-outline);">Optional. Your own key from developer.musixmatch.com, stored only on this device. The free plan returns partial plain lyrics.</span>
+                      </div>
+                      <input type="password" class="pill-select" id="input-musixmatch-key" placeholder="API key" autocomplete="off" spellcheck="false" aria-label="Musixmatch API key" style="min-width: 180px;">
                     </div>
                   </div>
 

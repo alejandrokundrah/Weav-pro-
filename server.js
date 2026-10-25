@@ -2922,9 +2922,10 @@ function getFetchedLyricsPath(title, artist) {
   return path.join(LYRICS_DIR, lyricsKey(title, artist) + '.lrc');
 }
 
-async function handleLyrics(req, res, title, artist, allowOnline = true, source = 'lrclib') {
+async function handleLyrics(req, res, title, artist, allowOnline = true, source = 'lrclib', musixmatchKey = '') {
   source = lyricsSources.normalizeSource(source);
-  const cacheKey = source === 'lrclib' ? `${artist}:${title}` : `${artist}:${title}|${source}`;
+  const keyed = (source === 'musixmatch' || source === 'auto') && musixmatchKey ? '+key' : '';
+  const cacheKey = source === 'lrclib' ? `${artist}:${title}` : `${artist}:${title}|${source}${keyed}`;
   const cached = lyricsCache.get(cacheKey);
   if (cached?.promise) {
     const outcome = await cached.promise;
@@ -2969,7 +2970,7 @@ async function handleLyrics(req, res, title, artist, allowOnline = true, source 
 
   let fetchedLyricsPath = getFetchedLyricsPath(title, artist);
   if (source !== 'lrclib') {
-    fetchedLyricsPath = fetchedLyricsPath.replace(/\.lrc$/, `.${source}.lrc`);
+    fetchedLyricsPath = fetchedLyricsPath.replace(/\.lrc$/, `.${source}${keyed ? '-key' : ''}.lrc`);
   }
 
   if (source === 'lrclib' && !fs.existsSync(fetchedLyricsPath) && /^[\x00-\x7F]*$/.test((title || '') + (artist || ''))) {
@@ -2994,7 +2995,7 @@ async function handleLyrics(req, res, title, artist, allowOnline = true, source 
   }
 
   try {
-    const rawLyrics = await lyricsSources.fetchLyricsBySource(source, title, artist, fetchLyricsDirect);
+    const rawLyrics = await lyricsSources.fetchLyricsBySource(source, title, artist, fetchLyricsDirect, { musixmatchKey });
     if (rawLyrics && rawLyrics.trim().length > 0) {
       try {
         await fs.promises.writeFile(fetchedLyricsPath, rawLyrics, 'utf-8');
@@ -3032,7 +3033,7 @@ async function handleSaveCustomLyrics(req, res, title, artist) {
       const customPath = getCustomLyricsPath(title, artist);
       await fs.promises.writeFile(customPath, lyrics, 'utf-8');
 
-      for (const suffix of ['', '|netease', '|auto']) lyricsCache.delete(`${artist}:${title}${suffix}`);
+      for (const suffix of ['', '|netease', '|kugou', '|musixmatch', '|musixmatch+key', '|auto', '|auto+key']) lyricsCache.delete(`${artist}:${title}${suffix}`);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
@@ -5037,7 +5038,7 @@ const server = http.createServer(async (req, res) => {
     const title = parsedUrl.query.title || '';
     const artist = parsedUrl.query.artist || '';
     const allowOnline = parsedUrl.query.online !== '0';
-    return handleLyrics(req, res, title, artist, allowOnline, parsedUrl.query.source || 'lrclib');
+    return handleLyrics(req, res, title, artist, allowOnline, parsedUrl.query.source || 'lrclib', String(parsedUrl.query.mxkey || '').slice(0, 128));
   }
 
   res.writeHead(404);
