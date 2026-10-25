@@ -141,7 +141,6 @@ function saveLibraryIndex() {
 const searchCache = new Map();
 const streamUrlCache = new Map();
 const lyricsCache = new Map();
-const lyricsSources = require('./lyrics-sources');
 const artistCache = new Map();
 const vibeCache = new Map();
 const ytArtistCache = new Map();
@@ -2880,14 +2879,6 @@ const TOKEN_PROTECTED_ROUTES = new Set([
   '/api/offline-delete',
   '/api/clear-offline-library',
   '/api/save-custom-lyrics',
-  '/api/scrobble/status',
-  '/api/scrobble/lastfm-keys',
-  '/api/scrobble/lastfm-begin',
-  '/api/scrobble/lastfm-finish',
-  '/api/scrobble/listenbrainz-token',
-  '/api/scrobble/disconnect',
-  '/api/scrobble/nowplaying',
-  '/api/scrobble/submit',
   '/api/encode'
 ]);
 
@@ -2930,10 +2921,8 @@ function getFetchedLyricsPath(title, artist) {
   return path.join(LYRICS_DIR, lyricsKey(title, artist) + '.lrc');
 }
 
-async function handleLyrics(req, res, title, artist, allowOnline = true, source = 'lrclib', musixmatchKey = '') {
-  source = lyricsSources.normalizeSource(source);
-  const keyed = (source === 'musixmatch' || source === 'auto') && musixmatchKey ? '+key' : '';
-  const cacheKey = source === 'lrclib' ? `${artist}:${title}` : `${artist}:${title}|${source}${keyed}`;
+async function handleLyrics(req, res, title, artist, allowOnline = true) {
+  const cacheKey = `${artist}:${title}`;
   const cached = lyricsCache.get(cacheKey);
   if (cached?.promise) {
     const outcome = await cached.promise;
@@ -2977,11 +2966,7 @@ async function handleLyrics(req, res, title, artist, allowOnline = true, source 
   }
 
   let fetchedLyricsPath = getFetchedLyricsPath(title, artist);
-  if (source !== 'lrclib') {
-    fetchedLyricsPath = fetchedLyricsPath.replace(/\.lrc$/, `.${source}${keyed ? '-key' : ''}.lrc`);
-  }
-
-  if (source === 'lrclib' && !fs.existsSync(fetchedLyricsPath) && /^[\x00-\x7F]*$/.test((title || '') + (artist || ''))) {
+  if (!fs.existsSync(fetchedLyricsPath) && /^[\x00-\x7F]*$/.test((title || '') + (artist || ''))) {
     const legacyFetched = legacyFetchedLyricsPath(title, artist);
     if (fs.existsSync(legacyFetched)) {
       fetchedLyricsPath = legacyFetched;
@@ -3003,7 +2988,7 @@ async function handleLyrics(req, res, title, artist, allowOnline = true, source 
   }
 
   try {
-    const rawLyrics = await lyricsSources.fetchLyricsBySource(source, title, artist, fetchLyricsDirect, { musixmatchKey });
+    const rawLyrics = await fetchLyricsDirect(title, artist);
     if (rawLyrics && rawLyrics.trim().length > 0) {
       try {
         await fs.promises.writeFile(fetchedLyricsPath, rawLyrics, 'utf-8');
@@ -3027,52 +3012,6 @@ async function handleLyrics(req, res, title, artist, allowOnline = true, source 
   }
 }
 
-const scrobbler = require('./scrobble').createScrobbler({
-  dataDir: DATA_DIR,
-  safeStorage: process.versions.electron ? require('electron').safeStorage : null,
-});
-
-function readJsonBody(req, res, done) {
-  let body = '';
-  let tooBig = false;
-  req.on('data', (chunk) => {
-    if (tooBig) return;
-    body += chunk;
-    if (body.length > 64 * 1024) tooBig = true;
-  });
-  req.on('end', () => {
-    if (tooBig) { res.writeHead(413, { 'Content-Type': 'application/json' }); return res.end('{"success":false,"error":"Too large"}'); }
-    let parsed = {};
-    try { parsed = body ? JSON.parse(body) : {}; } catch (_) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      return res.end('{"success":false,"error":"Bad JSON"}');
-    }
-    done(parsed);
-  });
-}
-
-async function handleScrobble(req, res, action) {
-  const send = (obj, code = 200) => { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
-  if (action === 'status' && req.method === 'GET') return send({ success: true, ...scrobbler.status() });
-  if (req.method !== 'POST') return send({ success: false, error: 'Method not allowed' }, 405);
-  readJsonBody(req, res, async (b) => {
-    try {
-      switch (action) {
-        case 'lastfm-keys': return send(scrobbler.setLastfmKeys(b));
-        case 'lastfm-begin': return send(await scrobbler.lastfmBegin());
-        case 'lastfm-finish': return send(await scrobbler.lastfmFinish());
-        case 'listenbrainz-token': return send(await scrobbler.setListenBrainzToken(b.token));
-        case 'disconnect': return send(scrobbler.disconnect(b.service));
-        case 'nowplaying': return send(await scrobbler.nowPlaying(b));
-        case 'submit': return send(await scrobbler.scrobble(b, b.timestamp, Array.isArray(b.only) ? b.only : undefined));
-        default: return send({ success: false, error: 'Unknown action' }, 404);
-      }
-    } catch (e) {
-      send({ success: false, error: 'Scrobbling failed' }, 500);
-    }
-  });
-}
-
 async function handleSaveCustomLyrics(req, res, title, artist) {
   let body = '';
   req.on('data', chunk => { if (res.writableEnded) return; body += chunk; if (body.length > MAX_BODY_BYTES) { body = ''; req.removeAllListeners('data'); req.removeAllListeners('end'); res.writeHead(413, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ success: false, error: 'payload too large' })); req.resume(); } });
@@ -3087,7 +3026,8 @@ async function handleSaveCustomLyrics(req, res, title, artist) {
       const customPath = getCustomLyricsPath(title, artist);
       await fs.promises.writeFile(customPath, lyrics, 'utf-8');
 
-      for (const suffix of ['', '|apple', '|netease', '|kugou', '|musixmatch', '|musixmatch+key', '|auto', '|auto+key']) lyricsCache.delete(`${artist}:${title}${suffix}`);
+      const cacheKey = `${artist}:${title}`;
+      lyricsCache.delete(cacheKey);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
@@ -5082,10 +5022,6 @@ const server = http.createServer(async (req, res) => {
     return handleAudioProxy(req, res, targetUrl);
   }
 
-  if (parsedUrl.pathname.startsWith('/api/scrobble/')) {
-    return handleScrobble(req, res, parsedUrl.pathname.slice('/api/scrobble/'.length));
-  }
-
   if (parsedUrl.pathname === '/api/save-custom-lyrics' && req.method === 'POST') {
     const title = parsedUrl.query.title || '';
     const artist = parsedUrl.query.artist || '';
@@ -5096,7 +5032,7 @@ const server = http.createServer(async (req, res) => {
     const title = parsedUrl.query.title || '';
     const artist = parsedUrl.query.artist || '';
     const allowOnline = parsedUrl.query.online !== '0';
-    return handleLyrics(req, res, title, artist, allowOnline, parsedUrl.query.source || 'lrclib', String(parsedUrl.query.mxkey || '').slice(0, 128));
+    return handleLyrics(req, res, title, artist, allowOnline);
   }
 
   res.writeHead(404);

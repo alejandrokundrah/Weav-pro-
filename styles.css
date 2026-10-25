@@ -7682,20 +7682,3 @@ body.multi-select-on .track-row.selectable .track-row-actions {
   opacity: 0.4;
   cursor: default;
 }
-
-/* Scrobbling settings */
-.scrobble-service { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--md-sys-color-outline-variant); }
-.scrobble-service-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.scrobble-service-name { font-weight: 600; font-size: calc(14px * var(--font-scale, 1)); }
-.scrobble-status { font-size: calc(12px * var(--font-scale, 1)); color: var(--md-sys-color-on-surface-variant); }
-.scrobble-fields { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.scrobble-input {
-  flex: 1 1 180px; min-width: 0; height: 40px; padding: 0 16px; border-radius: 20px; border: 1px solid var(--md-sys-color-outline-variant);
-  background: var(--md-sys-color-surface-container-high, transparent); color: var(--md-sys-color-on-surface); font: inherit; font-size: calc(13px * var(--font-scale, 1));
-}
-.scrobble-input:focus { outline: 2px solid var(--md-sys-color-primary); outline-offset: 1px; }
-.scrobble-hint { font-size: calc(12px * var(--font-scale, 1)); color: var(--md-sys-color-outline); }
-.scrobble-hint a { color: var(--md-sys-color-primary); }
-#scrobble-error { color: var(--md-sys-color-error, #f2b8b5); }
-#card-scrobbling .hidden { display: none !important; }
-#card-scrobbling .btn-pill-primary, #card-scrobbling .btn-outline-pill { align-self: flex-start; }
