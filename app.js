@@ -3143,6 +3143,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     syncTvLayout(!!isEmpty);
   }
 
+  const LYRICS_SOURCES = ['lrclib', 'netease', 'auto'];
+  function getLyricsSource() {
+    let v = 'lrclib';
+    try { v = localStorage.getItem('waev_lyrics_source') || 'lrclib'; } catch (_) {}
+    return LYRICS_SOURCES.includes(v) ? v : 'lrclib';
+  }
+  const lyricsSourceSelect = document.getElementById('select-lyrics-source');
+  if (lyricsSourceSelect) {
+    lyricsSourceSelect.value = getLyricsSource();
+    lyricsSourceSelect.addEventListener('change', () => {
+      try { localStorage.setItem('waev_lyrics_source', lyricsSourceSelect.value); } catch (_) {}
+      const t = state.currentTrack;
+      if (t && t.title) loadSyncedLyrics(t.title || '', t.artist || '', state.loadToken);
+    });
+  }
+
   async function loadSyncedLyrics(title, artist, token) {
     if (el.lyricsContainer) {
       el.lyricsContainer.scrollTop = 0;
@@ -3161,7 +3177,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
       const onlineParam = getAdv('online_lyrics', true) ? '1' : '0';
-      const res = await fetch(`http://127.0.0.1:${state.serverPort}/api/lyrics?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}&online=${onlineParam}`);
+      const lyricsSource = getLyricsSource();
+      const res = await fetch(`http://127.0.0.1:${state.serverPort}/api/lyrics?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}&source=${lyricsSource}&online=${onlineParam}`);
       const data = await res.json();
 
       if (token !== state.loadToken || (state.currentTrack && (state.currentTrack.title || '') !== title)) return;

@@ -1403,6 +1403,20 @@
                   <div class="setting-item">
                     <div class="setting-item-top" style="align-items: center;">
                       <div style="display: flex; flex-direction: column; gap: 2px;">
+                        <span class="setting-name">Lyrics source</span>
+                        <span style="font-size: calc(12px * var(--font-scale, 1)); color: var(--md-sys-color-outline);">LRCLIB is the default. NetEase and Auto send the track title and artist to music.163.com</span>
+                      </div>
+                      <select class="pill-select" id="select-lyrics-source" aria-label="Lyrics source">
+                        <option value="lrclib">LRCLIB</option>
+                        <option value="netease">NetEase</option>
+                        <option value="auto">Auto (LRCLIB, then NetEase)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="setting-item">
+                    <div class="setting-item-top" style="align-items: center;">
+                      <div style="display: flex; flex-direction: column; gap: 2px;">
                         <span class="setting-name">Karaoke word highlighting</span>
                         <span style="font-size: calc(12px * var(--font-scale, 1)); color: var(--md-sys-color-outline);">Highlight individual words in synchronized lyrics</span>
                       </div>
